@@ -2,6 +2,7 @@
  *	It's a Project! linux-loader
  *
  *	Copyright (C) 2017          Ash Logan <quarktheawesome@gmail.com>
+ *	Copyright (C) 2020          Roberto Van Eeden <rwrr0644@gmail.com>
  *
  *	Based on code from the following contributors:
  *
@@ -20,13 +21,19 @@
  *	see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
  */
 
-#ifndef __IPC_PROTOCOL_H__
-#define __IPC_PROTOCOL_H__
+#ifndef __LOLSERIAL_H__
+#define __LOLSERIAL_H__
 
-#define CMD_POWEROFF 0xCAFE0001
-#define CMD_REBOOT 0xCAFE0002
+#ifdef LOLSERIAL_OUTPUT
 
-#define CMD_MASK 0xFF000000
-#define CMD_PRINT 0x01000000
+void lolserial_print(char *str);
+void lolserial_init();
 
-#endif //__IPC_PROTOCOL_H__
+#else
+
+#define lolserial_print(str)
+#define lolserial_init()
+
+#endif
+
+#endif /* __LOLSERIAL_H__ */

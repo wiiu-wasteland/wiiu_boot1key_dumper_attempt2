@@ -30,52 +30,93 @@
 #include "storage/sd/fatfs/elm.h"
 #include "storage/isfs.h"
 #include "storage/crypto.h"
-#include "application.h"
 #include "system/smc.h"
 #include "system/latte.h"
 #include "common/utils.h"
 
+
+#define CMD_KILL 0xCAFE0001
+
+#define CMD_MASK 0xFF000000
+#define CMD_PRINT 0x01000000
+
+#define LT_IPC_ARMCTRL_COMPAT_X1 0x4
+#define LT_IPC_ARMCTRL_COMPAT_Y1 0x1
+
+u32 *magic   = (u32*)0x1000A000;
+u32 *ppcdata = (u32*)0x1000A004;
+
 void NORETURN _main(void* base) {
+	int res;
+	u32 ppc_entry = 0;
+
 	gfx_clear(GFX_ALL, BLACK);
-	printf("Hello World!\n");
-
-	//Initialize everything
 	exception_initialize();
-	printf("[ OK ] Setup Exceptions\n");
 	mem_initialize();
-	printf("[ OK ] Turned on Caches/MMU\n");
-
 	irq_initialize();
-	printf("[ OK ] Setup Interrupts\n");
-
 	srand(read32(LT_TIMER));
 	crypto_initialize();
-	printf("[ OK ] Setup Crypto\n");
-
 	sdcard_init();
-	printf("[ OK ] Setup SD Card\n");
-
-	int res = ELM_Mount();
+	res = ELM_Mount();
 	if (res) {
-		char errorstr[] = "Couldn't mount SD card! See Gamepad for details.";
-		gfx_draw_string(GFX_TV, errorstr, (1280 - sizeof(errorstr)*8) / 2, 500, WHITE);
-		printf("[FATL] SD Card mount error: %d\n", res);
+		printf("panic: SD Card mount error: %d\n", res);
 		panic(0);
 	}
-	printf("[ OK ] Mounted SD Card\n");
-
 	isfs_init();
-	printf("[ OK ] Mounted SLC\n");
 
+	printf("LT_AHBPROT     = %08X\n", read32(LT_AHBPROT));
+	printf("LT_GPIO_ENABLE = %08X\n", read32(LT_GPIO_ENABLE));
+	printf("LT_GPIO_OWNER  = %08X\n", read32(LT_GPIO_OWNER));
+
+	printf("--------------------------\n");
+	printf(" Starting ppc-hax-kernel! \n");
+	printf("--------------------------\n");
+
+	// remove hardware access restrictions
+	write32(LT_EXICTRL, 0x1F);
 	write32(LT_AHBPROT, 0xFFFFFFFF);
 	write32(LT_GPIO_ENABLE, 0xFFFFFFFF);
 	write32(LT_GPIO_OWNER, 0xFFFFFFFF);
-	printf("[ OK ] Unrestricted Hardware\n");
 
-	printf("--------------------------\n");
-	printf("          Ready!          \n");
-	printf("--------------------------\n");
-	//We're good to go!
+	// load ppc-hax-kernel
+	res = ppc_load_file("sdmc:/ppc-hax-kernel.elf", &ppc_entry);
+	if (res < 0) {
+		printf("panic: Failed to load ppc-hax-kernel.elf: %d\n", res);
+		panic(0);
+	}
+	printf("ppc_entry: %08X\n");
 
-	app_run();
+	// jump to the kernel
+	ppc_jump(ppc_entry);
+
+	gfx_clear(GFX_ALL, BLACK);
+
+	ELM_Unmount();
+	sdcard_exit();
+	irq_disable(IRQ_SD0);
+	isfs_fini();
+	irq_shutdown();
+	mem_shutdown();
+
+	for (;;) {
+		//check for message sent flag
+		u32 ctrl = read32(LT_IPC_ARMCTRL_COMPAT);
+		if (!(ctrl & LT_IPC_ARMCTRL_COMPAT_X1)) continue;
+		
+		//read PowerPC's message
+		u32 msg = read32(LT_IPC_PPCMSG_COMPAT);
+		
+		//process commands
+		if ((msg & CMD_MASK) == CMD_PRINT) {
+			char buf[4];
+			buf[0] = (msg & 0x00FF0000) >> 16;
+			buf[1] = (msg & 0x0000FF00) >>  8;
+			buf[2] = (msg & 0x000000FF) >>  0;
+			buf[3] = '\0';
+			ppc_print(buf);
+		}
+		
+		//writeback ctrl value to reset IPC
+		write32(LT_IPC_ARMCTRL_COMPAT, ctrl);
+	}
 }

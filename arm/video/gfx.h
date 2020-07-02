@@ -30,7 +30,7 @@ void gfx_clear(gfx_screen_t screen, u32 color);
 void gfx_draw_string(gfx_screen_t screen, char* str, int x, int y, u32 color);
 void gfx_draw_char(gfx_screen_t screen, char c, int x, int y, u32 color);
 void gfx_draw_logo(gfx_screen_t screen);
+void ppc_print(char* msg);
 int printf(const char* fmt, ...);
-void sram_print(char* msg);
 
 #endif

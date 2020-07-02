@@ -9,8 +9,8 @@ from Crypto.Hash import SHA
 
 #To get the IV: Compile dimok789/FIX94's iosuhax, copy them out of scripts/keys.py.
 #make sure to capitalise all the letters
-key = b16decode(b"B5XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-iv = b16decode(b"91XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+key = b16decode(b"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+iv = b16decode(b"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
 no_crypto = False
 
